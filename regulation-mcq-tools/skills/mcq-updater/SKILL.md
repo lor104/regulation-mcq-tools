@@ -44,7 +44,11 @@ If a file with that name already exists, add ` v2`, ` v3` … rather than overwr
 - **Read the new edition's actual text** for every question you touch. Don't rely on
   the impact report's summary of the rule.
 - **Read the CSV with a real CSV parser.** Cells may contain commas, curly quotes or
-  line breaks.
+  line breaks. A line break can split a word ("Octo\n ber") or sit between two words,
+  and the correct answer and its matching option may break in different places. When
+  comparing answer text, rejoin split words and treat other breaks as spaces. In rows
+  you change, write every cell on one line. Leave untouched rows exactly as they are,
+  line breaks included.
 
 ## Process
 
@@ -153,22 +157,30 @@ Run this after all changes (adjust the file names):
 
 ```bash
 python3 -I - "<original.csv>" "<updated.csv>" <<'EOF'
-import csv, sys
-o = list(csv.reader(open(sys.argv[1], encoding="utf-8")))
-n = list(csv.reader(open(sys.argv[2], encoding="utf-8")))
+import csv, re, sys
+o = list(csv.reader(open(sys.argv[1], encoding="utf-8-sig", newline="")))
+n = list(csv.reader(open(sys.argv[2], encoding="utf-8-sig", newline="")))
 assert len(o) == len(n), f"row count changed: {len(o)} -> {len(n)}"
 assert o[0] == n[0], "header changed"
-for r in n[1:]:
+flat = lambda s: re.sub(r"\s+", "", s)  # line breaks in the original may fall anywhere
+changed = []
+for i, r in enumerate(n[1:], start=1):
     assert len(r) == 8, f"Q{r[0]}: wrong column count"
-    assert r[6] in r[2:6], f"Q{r[0]}: correct answer not an exact option"
-    assert len(set(r[2:6])) == 4, f"Q{r[0]}: duplicate options"
-changed = [n[i][0] for i in range(1, len(n)) if n[i] != o[i]]
+    if r != o[i]:
+        changed.append(r[0])
+        assert not any("\n" in c or "\r" in c for c in r), f"Q{r[0]}: changed row has a line break"
+        assert r[6] in r[2:6], f"Q{r[0]}: correct answer not an exact option"
+    assert sum(flat(x) == flat(r[6]) for x in r[2:6]) == 1, f"Q{r[0]}: correct answer matches no option, or more than one"
+    assert len({flat(x) for x in r[2:6]}) == 4, f"Q{r[0]}: duplicate options"
 print("OK. Changed rows:", ", ".join(changed) or "none")
 EOF
 ```
 
-Confirm the changed rows match exactly the questions logged as "Updated". Fix and
-re-run if anything fails. Report the result.
+Changed rows must match their correct answer exactly. Untouched rows are checked
+ignoring spaces and line breaks, because the original bank may break the correct
+answer and its matching option in different places; they are never edited to make the
+check pass. Confirm the changed rows match exactly the questions logged as "Updated".
+Fix and re-run if anything fails. Report the result.
 
 ## Change log format (CSV)
 

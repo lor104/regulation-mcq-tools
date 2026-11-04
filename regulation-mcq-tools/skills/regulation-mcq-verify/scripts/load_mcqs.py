@@ -5,10 +5,12 @@ Usage:
   python3 -I load_mcqs.py <questions.csv> [<regulations.txt>] > <scratch>/mcqs.json
 
 - Reads the CSV with a real CSV parser (cells may contain line breaks).
-- Repairs line breaks inside cells. If the text on both sides of a break forms a
-  word found in the regulation text (for example "Ju\n ne" -> "June"), the break
-  is removed. Otherwise it becomes a space. Every repair is listed so it can be
-  double-checked.
+- Repairs line breaks inside cells. A break is removed when the text on both sides
+  forms a word found in the regulation text ("organization\n s" -> "organizations"),
+  when neither side is a word in the regulation text and the right side is a short
+  lowercase fragment ("Ju\n ne" -> "June"), or when it sits next to punctuation
+  ("Trespassing\n ”"). Otherwise it becomes a space. Every repair is listed so it
+  can be double-checked.
 - Runs structural checks that do not need judgement: missing columns or cells,
   duplicate IDs, duplicate options, a CorrectAnswer that matches no option (or
   matches only after ignoring case, quotes or spacing), and CodeReferences whose
@@ -23,7 +25,9 @@ import sys
 
 EXPECTED = ["QuestionID", "Question", "Answer1", "Answer2", "Answer3", "Answer4",
             "CorrectAnswer", "CodeReference"]
-BREAK = re.compile(r"(\S*?)([ \t]*\r?\n[ \t]*)+(\S*)")
+BREAK = re.compile(r"[ \t]*(?:\r?\n[ \t]*)+")
+CLOSING = set("”’\"')]}.,;:!?")
+OPENING = set("“‘\"'([{")
 
 
 def norm(s):
@@ -42,21 +46,46 @@ def main():
 
     repairs, issues = [], []
 
-    def fix(qid, col, text):
+    def fix(qid, col, text, row_lines=()):
+        # Each break is judged on the text around it in the original cell, so a
+        # cell with several breaks in a row ("organization\n s keeping\n bees")
+        # and fragments next to punctuation ("March–Octo\n ber") are handled.
+        # The best evidence is the same row: the CorrectAnswer repeats an option,
+        # and the two cells often break in different places.
+        def in_row(phrase):
+            pat = re.compile(rf"(?<![A-Za-z]){re.escape(phrase)}(?![A-Za-z])", re.I)
+            return any(pat.search(line) for line in row_lines)
+
         def repl(m):
-            left, right = m.group(1), m.group(3)
-            lw = re.sub(r"^\W+", "", left)
-            rw = re.sub(r"\W+$", "", right)
-            joined = (lw + rw).casefold()
-            if lw and rw and lw[-1].isalpha() and rw[0].isalpha() and joined in vocab:
-                out, how = left + right, "joined (word found in regulations)"
-            elif not vocab:
-                out, how = left + " " + right, "replaced with space (no regulation text given; verify)"
+            before, after = m.string[:m.start()], m.string[m.end():]
+            left = re.search(r"\S*$", before).group()
+            right = re.match(r"\S*", after).group()
+            lw = re.search(r"[A-Za-z]+$", before)
+            rw = re.match(r"[A-Za-z]+", after)
+            if not before or not after:
+                sep, how = "", "removed (edge of cell)"
+            elif after[0] in CLOSING or before[-1] in OPENING:
+                sep, how = "", "removed (next to punctuation)"
+            elif lw and rw:
+                a, b = lw.group(), rw.group()
+                a_word, b_word = a.casefold() in vocab, b.casefold() in vocab
+                if in_row(a + " " + b):
+                    sep, how = " ", "replaced with space (written with a space elsewhere in the row)"
+                elif in_row(a + b):
+                    sep, how = "", "joined (written as one word elsewhere in the row)"
+                elif (a + b).casefold() in vocab and not (a_word and b_word):
+                    sep, how = "", "joined (word found in regulations)"
+                elif vocab and not a_word and not b_word and b.islower() and len(b) <= 4:
+                    sep, how = "", "joined (neither fragment is a word in the regulations; verify)"
+                elif not vocab:
+                    sep, how = " ", "replaced with space (no regulation text given; verify)"
+                else:
+                    sep, how = " ", "replaced with space"
             else:
-                out, how = left + " " + right, "replaced with space"
+                sep, how = " ", "replaced with space"
             repairs.append({"QuestionID": qid, "column": col,
-                            "before": m.group(0), "after": out, "how": how})
-            return out
+                            "before": left + "\\n" + right, "after": left + sep + right, "how": how})
+            return sep
         return BREAK.sub(repl, text) if ("\n" in text or "\r" in text) else text
 
     with open(csv_path, encoding="utf-8-sig", newline="") as f:
@@ -73,8 +102,9 @@ def main():
         r = {(k or "").strip(): (v or "") for k, v in raw.items()}
         qid = r.get("QuestionID", "").strip() or f"row{i}"
         q = {"row": i}
+        row_lines = [ln.strip() for v in r.values() for ln in re.split(r"\r?\n", v)]
         for c in cols:
-            q[c] = fix(qid, c, r.get(c, "")).strip()
+            q[c] = fix(qid, c, r.get(c, ""), row_lines).strip()
         questions.append(q)
 
         if qid in seen:
