@@ -1,0 +1,9 @@
+{
+  "name": "regulation-mcq-tools",
+  "version": "1.0.0",
+  "description": "Keep a multiple-choice question bank in line with a regulation, code, standard or policy. Compare two editions and flag affected questions (regulation-mcq-impact), update the questions to the new edition (mcq-updater), verify a bank against one edition (regulation-mcq-verify), or run all three in order (mcq-update-pipeline). Every run is saved in a numbered Outcomes folder with copies of its inputs.",
+  "author": {
+    "name": "Lauren Rosentzveig"
+  },
+  "keywords": ["mcq", "question bank", "regulations", "exam", "compliance", "assessment"]
+}

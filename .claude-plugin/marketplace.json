@@ -1,0 +1,14 @@
+{
+  "name": "regulation-mcq-tools",
+  "description": "Tools for keeping multiple-choice question banks in line with regulations, codes, standards and policies.",
+  "owner": {
+    "name": "Lauren Rosentzveig"
+  },
+  "plugins": [
+    {
+      "name": "regulation-mcq-tools",
+      "source": "./regulation-mcq-tools",
+      "description": "Compare regulation editions, update and verify multiple-choice question banks, or run all three steps in order."
+    }
+  ]
+}
