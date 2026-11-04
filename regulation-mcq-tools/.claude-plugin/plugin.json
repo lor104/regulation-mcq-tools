@@ -5,5 +5,13 @@
   "author": {
     "name": "Lauren Rosentzveig"
   },
-  "keywords": ["mcq", "question bank", "regulations", "exam", "compliance", "assessment"]
+  "keywords": [
+    "mcq",
+    "question bank",
+    "regulations",
+    "exam",
+    "compliance",
+    "assessment"
+  ],
+  "license": "MIT"
 }

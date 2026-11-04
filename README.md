@@ -60,3 +60,7 @@ claude --plugin-dir ./regulation-mcq-tools
 - `python3` (used for reading CSVs and running checks)
 - One of the following for PDF text: `pdftotext` (poppler), macOS (built-in PDFKit),
   or the Python `pypdf` package
+
+## License
+
+MIT. See [LICENSE](LICENSE).
