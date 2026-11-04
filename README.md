@@ -45,7 +45,7 @@ changed.
 ## Install
 
 ```
-/plugin marketplace add <github-user>/regulation-mcq-tools
+/plugin marketplace add lor104/regulation-mcq-tools
 /plugin install regulation-mcq-tools@regulation-mcq-tools
 ```
 
